@@ -15,7 +15,7 @@ instead of deploying and waiting a day for organic usage.
    database, and print the difference in the knowledge produced.
 
 ```sh
-pnpm simulate:extract -- \
+pnpm simulate:extract \
   --source "$SIMULATE_SOURCE_URL" \
   --target "postgres://user@127.0.0.1:55432/simulate_input" \
   --threads 5
@@ -34,12 +34,12 @@ The final lines are machine-greppable: `EXTRACTED_THREADS=`, `EXTRACTED_MESSAGES
 `EXTRACTED_OM_RECORDS=`.
 
 ```sh
-pnpm simulate:replay -- \
+pnpm simulate:replay \
   --input  "postgres://user@127.0.0.1:55432/simulate_input" \
   --target "postgres://user@127.0.0.1:55432/simulate_arm_a" \
   --org my-org --capture-model google/gemini-2.5-flash --curate-model deepseek/deepseek-chat
 
-pnpm simulate:ab -- \
+pnpm simulate:ab \
   --input "postgres://user@127.0.0.1:55432/simulate_input" \
   --target-prefix "postgres://user@127.0.0.1:55432/simulate_run" \
   --arm-a ./arm-a.txt --arm-b ./arm-b.txt
@@ -57,7 +57,7 @@ cycle, plus a flush at the end so no arm's tail is left uncurated). Pass `--cade
 the driver never calls the curator at all — neither on schedule nor at the flush.
 
 ```sh
-pnpm simulate:replay -- \
+pnpm simulate:replay \
   --input  "postgres://user@127.0.0.1:55432/simulate_input" \
   --target "postgres://user@127.0.0.1:55432/simulate_arm_a" \
   --org my-org --cadence off
