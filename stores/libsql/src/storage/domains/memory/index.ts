@@ -2337,6 +2337,7 @@ export class MemoryLibSQL extends MemoryStorage {
           sql: `UPDATE "${OM_TABLE}" SET
               "bufferedObservationChunks" = json_insert(COALESCE("bufferedObservationChunks", '[]'), '$[#]', json(?)),
               "lastBufferedAtTime" = COALESCE(?, "lastBufferedAtTime"),
+              "lastBufferedAtTokens" = COALESCE(?, "lastBufferedAtTokens"),
               "updatedAt" = ${now}
             WHERE id = ?
               AND "observationBufferClaimToken" = ?
@@ -2344,6 +2345,7 @@ export class MemoryLibSQL extends MemoryStorage {
           args: [
             JSON.stringify(newChunk),
             input.lastBufferedAtTime ? input.lastBufferedAtTime.toISOString() : null,
+            input.lastBufferedAtTokens ?? null,
             input.id,
             input.ownerToken,
           ],
