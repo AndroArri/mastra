@@ -3881,9 +3881,10 @@ ${formattedMessages}
     const store = await memory.storage.getStore('knowledge');
     if (!store) return;
 
+    const effectiveResourceId = resourceId ?? threadId;
     const scope = canonicalizeKnowledgeScope([
       `org:${organizationId}`,
-      `resource:${resolveKnowledgeResourceId(requestContext, resourceId)}`,
+      `resource:${resolveKnowledgeResourceId(requestContext, effectiveResourceId)}`,
       `thread:${threadId}`,
     ]);
 
@@ -3908,7 +3909,7 @@ ${formattedMessages}
     try {
       const result = await memory.runCuration({
         threadId,
-        resourceId: resourceId ?? threadId,
+        resourceId: effectiveResourceId,
         requestContext,
       });
       outcome = result.outcome;
