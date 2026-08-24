@@ -247,7 +247,8 @@ export class ObserverRunner {
 
     const observerMessages = [
       {
-        role: 'user' as const,
+        // Previous observations and observer task instructions are internal state, not user-authored input.
+        role: 'assistant' as const,
         content: buildObserverTaskPrompt(existingObservations, {
           ...options,
           includeThreadTitle: this.observationConfig.threadTitle,
@@ -467,7 +468,8 @@ export class ObserverRunner {
 
     const observerMessages = [
       {
-        role: 'user' as const,
+        // Previous observations and observer task instructions are internal state, not user-authored input.
+        role: 'assistant' as const,
         content: buildMultiThreadObserverTaskPrompt(
           existingObservations,
           threadOrder,

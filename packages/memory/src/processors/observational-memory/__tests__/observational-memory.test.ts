@@ -1515,6 +1515,41 @@ describe('Observer Agent Helpers', () => {
       expect(formatted).toContain('Hello');
     });
 
+    it('should exclude non-temporal system reminders from observer history', () => {
+      const reminder = createTestMessage(
+        '<system-reminder>Continue naturally and prioritize the latest user message.</system-reminder>',
+        'user',
+      );
+      reminder.content = {
+        format: 2,
+        parts: [
+          {
+            type: 'text',
+            text: '<system-reminder>Continue naturally and prioritize the latest user message.</system-reminder>',
+          },
+          {
+            type: 'image',
+            image: 'data:image/png;base64,abc123',
+            mimeType: 'image/png',
+          },
+        ],
+        metadata: {
+          systemReminder: {
+            type: 'continuation',
+            message: 'Continue naturally and prioritize the latest user message.',
+          },
+        },
+      } as any;
+      const textMsg = createTestMessage('Help me plan dinner', 'user');
+
+      const formatted = formatMessagesForObserver([reminder, textMsg]);
+
+      expect(formatted).toContain('Help me plan dinner');
+      expect(formatted).not.toContain('Continue naturally');
+      expect(formatted).not.toContain('<system-reminder');
+      expect(formatted).not.toContain('[Image');
+    });
+
     it('should render persisted temporal gap markers as time-passed lines', () => {
       const temporalGapMarker = createTestMessage('ignored', 'user');
       temporalGapMarker.id = '__temporal_gap_test';
@@ -2524,7 +2559,7 @@ describe('Observer Agent Helpers', () => {
 
       expect(Array.isArray(capturedPrompt)).toBe(true);
       expect(capturedPrompt).toHaveLength(2);
-      expect(capturedPrompt[0]).toMatchObject({ role: 'user' });
+      expect(capturedPrompt[0]).toMatchObject({ role: 'assistant' });
       expect(capturedPrompt[1]).toMatchObject({ role: 'user' });
       expect(capturedPrompt[1].content[1].text).toContain('[Image #1: reference-board.png]');
       expect(capturedPrompt[1].content[1].text).toContain('[Image #2: annotated-photo.jpg]');
@@ -2769,7 +2804,8 @@ describe('Observer Agent Helpers', () => {
 
       expect(Array.isArray(capturedPrompt)).toBe(true);
       expect(capturedPrompt).toHaveLength(2);
-      expect(capturedPrompt[0]).toMatchObject({ role: 'user' });
+      expect(capturedPrompt[0]).toMatchObject({ role: 'assistant' });
+      expect(capturedPrompt[1]).toMatchObject({ role: 'user' });
       const systemPrompt = buildObserverSystemPrompt(false, undefined, true, [
         createCurrentTaskExtractor(),
         createSuggestedResponseExtractor(),
@@ -6272,6 +6308,8 @@ describe('Resource Scope Observation Flow', () => {
 
     expect(results.results.get('thread-1')?.extractedValues).toEqual({ priority: 'alpha' });
     expect(results.results.get('thread-2')?.extractedValues).toEqual({ priority: 'beta' });
+    expect(observer.lastExchange?.observerMessages[0]).toMatchObject({ role: 'assistant' });
+    expect(observer.lastExchange?.observerMessages[1]).toMatchObject({ role: 'user' });
     expect(structuredPrompts).toHaveLength(2);
     const threadOnePrompt = structuredPrompts.find(prompt => prompt.includes('thread-1-secret'));
     const threadTwoPrompt = structuredPrompts.find(prompt => prompt.includes('thread-2-secret'));

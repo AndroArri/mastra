@@ -40,7 +40,11 @@ type ObserverFormatOptions = {
  * The core extraction instructions for the Observer.
  * This is exported so the Reflector can understand how observations were created.
  */
-export const OBSERVER_EXTRACTION_INSTRUCTIONS = `CRITICAL: DISTINGUISH USER ASSERTIONS FROM QUESTIONS
+export const OBSERVER_EXTRACTION_INSTRUCTIONS = `CRITICAL: OBSERVE ONLY CONVERSATION HISTORY
+
+Only content under "New Message History to Observe" is conversation history. Observer task/context messages, previous observations, prior thread metadata, and system reminders are internal context, not user requests, assertions, or priorities.
+
+CRITICAL: DISTINGUISH USER ASSERTIONS FROM QUESTIONS
 
 When the user TELLS you something about themselves, mark it as an assertion:
 - "I have two kids" → 🔴 (14:30) User stated has two kids
@@ -953,11 +957,16 @@ function formatObserverLines(
   };
 }
 
+function getObserverMessageMetadata(
+  msg: MastraDBMessage,
+): { gapText?: unknown; reminderType?: unknown; systemReminder?: unknown } | undefined {
+  return typeof msg.content === 'object' && msg.content && 'metadata' in msg.content
+    ? (msg.content.metadata as { gapText?: unknown; reminderType?: unknown; systemReminder?: unknown })
+    : undefined;
+}
+
 function getTemporalGapMarkerText(msg: MastraDBMessage): string | undefined {
-  const metadata =
-    typeof msg.content === 'object' && msg.content && 'metadata' in msg.content
-      ? (msg.content.metadata as { gapText?: unknown; reminderType?: unknown; systemReminder?: unknown })
-      : undefined;
+  const metadata = getObserverMessageMetadata(msg);
 
   if (metadata?.reminderType === 'temporal-gap' && typeof metadata.gapText === 'string') {
     return metadata.gapText;
@@ -977,11 +986,29 @@ function getTemporalGapMarkerText(msg: MastraDBMessage): string | undefined {
   return undefined;
 }
 
+function isObserverControlReminder(msg: MastraDBMessage): boolean {
+  if (isTemporalGapMarker(msg)) {
+    return false;
+  }
+
+  const metadata = getObserverMessageMetadata(msg);
+  if (metadata?.systemReminder || metadata?.reminderType) {
+    return true;
+  }
+
+  const firstTextPart = msg.content?.parts?.find(part => part.type === 'text');
+  return typeof firstTextPart?.text === 'string' && firstTextPart.text.trimStart().startsWith('<system-reminder');
+}
+
 function formatObserverMessage(
   msg: MastraDBMessage,
   counter: ObserverAttachmentCounter,
   options?: ObserverFormatOptions,
 ): ObserverFormattedMessage {
+  if (isObserverControlReminder(msg)) {
+    return { lines: [], attachments: [] };
+  }
+
   const maxLen = options?.maxPartLength;
   const maxToolResultTokens = options?.maxToolResultTokens ?? DEFAULT_OBSERVER_TOOL_RESULT_MAX_TOKENS;
   const attachmentFilter = options?.attachmentFilter;
