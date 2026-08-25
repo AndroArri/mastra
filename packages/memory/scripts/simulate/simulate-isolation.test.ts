@@ -4,10 +4,10 @@ import { InMemoryStore } from '@mastra/core/storage';
 import type { MastraEmbeddingModel, MastraVector } from '@mastra/core/vector';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Memory } from '../../../index';
-import { buildArmSubconscious, replayCycles } from '../simulate/drive';
-import type { ArmConfig } from '../simulate/drive';
-import type { ReconstructedCycle } from '../simulate/reconstruct';
+import { Memory } from '../../src/index';
+import { buildArmSubconscious, replayCycles } from './drive';
+import type { ArmConfig } from './drive';
+import type { ReconstructedCycle } from './reconstruct';
 
 const semanticInfrastructure = {
   vector: {} as MastraVector,

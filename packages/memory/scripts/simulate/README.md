@@ -8,7 +8,9 @@ instead of deploying and waiting a day for organic usage.
 
 1. **Extract** — copy a bounded set of threads (thread rows, messages, and _all_
    Observational Memory record generations) out of any Mastra-schema Postgres into a local
-   Postgres "input" database.
+   Postgres "input" database. Replay reads only the OM records; the thread and message rows
+   are kept purely as debugging context for inspecting the source conversation — the
+   simulator never replays source messages.
 2. **Replay** — reconstruct each thread's original observation cycles from those records
    and drive them through capture + curation against a local store.
 3. **A/B** — run two prompt configurations over the same cycles, each against its own fresh
@@ -50,11 +52,13 @@ pnpm simulate:ab \
 runner refuses to start when the two arms differ in anything else — models, cadence, scopes,
 thread selection — so a printed diff can only be attributable to the prompt.
 
-### Letting the library decide when to curate
+### Raw capture without curation
 
 By default the replay driver curates on its own schedule (`--cadence N`, after every Nth
 cycle, plus a flush at the end so no arm's tail is left uncurated). Pass `--cadence off` and
-the driver never calls the curator at all — neither on schedule nor at the flush.
+no curation happens at all — the replay drives the capture extractor and the driver's own
+`runCuration` calls directly, never the `ObservationalMemory` lifecycle, so the driver's
+calls are the only curation path and turning them off guarantees zero curations.
 
 ```sh
 pnpm simulate:replay \
@@ -63,19 +67,26 @@ pnpm simulate:replay \
   --org my-org --cadence off
 ```
 
-That mode exists so a run can answer _when curation fires_ rather than _what the curator
-produces_: with the driver's own calls off, every curation recorded during a run came from
-the memory package's own triggers. A run configured this way against a build with no
-triggers enabled should record zero curations — that is the point, not a failure.
+Use it to A/B **capture prompts in isolation**: the resulting knowledge is raw capture
+output with no curation pass layered on top. It cannot observe lifecycle-triggered
+curation — measuring when the library decides to curate would require a replay path that
+actually drives the OM lifecycle (observation turns, activation, reflection), which this
+simulator deliberately does not do.
 
 A third **control** arm re-runs arm A's own configuration. Capture and curation are live
 model calls, so identical prompts still diff; `CONTROL_CHANGED_RECORDS` is that noise floor.
 An A-vs-B diff at or below it means the prompt change had no detectable effect. Pass
 `--control false` to skip it (faster, but the A/B number is then unreadable).
 
+The printed diff lists every diverging node by name — including nodes present in only one
+arm — with the normalized record text that was added, removed, or changed under it, so a
+run answers _what_ diverged, not just how much. Records under one-arm-unique nodes count
+in the added/removed totals. Pass `--report <path>` to also write the full structured diff
+(per-node entries, control diff, curation outcomes, config hashes) as JSON.
+
 The summary block is machine-greppable: `ARM_A_NODES=`, `ARM_B_NODES=`, `ONLY_IN_A=`,
 `ONLY_IN_B=`, `CHANGED_RECORDS=`, `CONTROL_CHANGED_RECORDS=`, `SOURCE_THREADS=`,
-`CYCLES_REPLAYED=`, `ARM_A_CONFIG_HASH=`, `ARM_B_CONFIG_HASH=`, `MODEL=`.
+`CYCLES_REPLAYED=`, `ARM_A_CONFIG_HASH=`, `ARM_B_CONFIG_HASH=`, `MODEL=`, `REPORT=`.
 
 ## What this exercises — and what it does not
 

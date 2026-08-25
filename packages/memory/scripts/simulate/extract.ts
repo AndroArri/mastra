@@ -12,7 +12,15 @@ import { createRequire } from 'node:module';
 
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
-/** Tables copied per selected thread, with the column holding the thread id. */
+/**
+ * Tables copied per selected thread, with the column holding the thread id.
+ *
+ * Replay consumes ONLY `mastra_observational_memory` — cycles are reconstructed from the
+ * recorded OM generations, never from the source messages. The thread and message rows are
+ * copied deliberately as local debugging context: when a reconstructed cycle looks wrong,
+ * the original conversation is right there to inspect instead of requiring another trip to
+ * the source database. They are inert inputs, not part of the replay.
+ */
 export const COPIED_TABLES = [
   { table: 'mastra_threads', threadColumn: 'id' },
   { table: 'mastra_messages', threadColumn: 'thread_id' },

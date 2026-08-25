@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import type { Agent } from '@mastra/core/agent';
 import { RequestContext } from '@mastra/core/di';
 
-import { applyExtractorHooks } from '../extracted-values';
-import { Subconscious } from '../subconscious';
+import { applyExtractorHooks } from '../../src/processors/observational-memory/extracted-values';
+import { Subconscious } from '../../src/processors/observational-memory/subconscious';
 import type { ReconstructedCycle } from './reconstruct';
 
 /**
@@ -23,11 +23,12 @@ export type ArmConfig = {
   name: string;
   prompts: ArmPrompts;
   /**
-   * Run a curation after every Nth cycle, or `false` to leave curation entirely to the
-   * system under test. The driver curating on its own schedule is the right default for
-   * comparing prompts, but it makes the replay useless for observing whether something
-   * *else* — a lifecycle trigger inside Memory — decides to curate, because the driver's
-   * calls are indistinguishable from the ones being measured.
+   * Run a curation after every Nth cycle, or `false` for raw capture with no curation
+   * at all. The replay never drives the OM lifecycle (no ObservationalMemory, no
+   * ObservationTurn, no reflection), so the driver's own `runCuration` calls are the
+   * ONLY curation path — `false` therefore guarantees zero curations. Use it to compare
+   * capture prompts in isolation, not to observe lifecycle-triggered curation; that
+   * would require a replay path that actually drives the OM lifecycle, which this is not.
    */
   curationCadence: number | false;
   defaultScope: 'thread' | 'resource' | 'org';

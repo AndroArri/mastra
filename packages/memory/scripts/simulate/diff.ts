@@ -28,9 +28,14 @@ export type ArmSnapshot = {
 
 export type NodeRecordDiff = {
   node: string;
-  added: number;
-  removed: number;
-  changed: number;
+  /** Whether the node exists in both arms or only one of them. */
+  presence: 'both' | 'only-a' | 'only-b';
+  /** Normalized record texts present only in arm B. */
+  added: string[];
+  /** Normalized record texts present only in arm A. */
+  removed: string[];
+  /** Paired records the two arms wrote differently (normalized text). */
+  changed: { a: string; b: string }[];
 };
 
 export type KnowledgeDiff = {
@@ -41,7 +46,7 @@ export type KnowledgeDiff = {
   onlyInA: string[];
   onlyInB: string[];
   matchedNodes: string[];
-  /** Per-node record differences, only for nodes present in both arms. */
+  /** Per-node record differences, including nodes present in only one arm. */
   perNode: NodeRecordDiff[];
   addedRecords: number;
   removedRecords: number;
@@ -105,6 +110,11 @@ function multisetDifference(left: string[], right: string[]): string[] {
  * whatever is left over after pairing is a genuine `added` or `removed`. This
  * is what makes a prompt change visible when both arms produce the same node
  * names and the same record counts but different knowledge underneath.
+ *
+ * A node present in only one arm contributes ALL of its records to the
+ * `added` (only in B) or `removed` (only in A) totals — a node the other arm
+ * never wrote is knowledge the other arm does not have, and hiding its records
+ * from the totals would make a large divergence look like a small one.
  */
 export function diffArms(a: ArmSnapshot, b: ArmSnapshot): KnowledgeDiff {
   const aByNode = groupByNode(a);
@@ -118,9 +128,6 @@ export function diffArms(a: ArmSnapshot, b: ArmSnapshot): KnowledgeDiff {
   const matchedNodes = [...aNames].filter(name => bNames.has(name)).sort();
 
   const perNode: NodeRecordDiff[] = [];
-  let addedRecords = 0;
-  let removedRecords = 0;
-  let changedRecords = 0;
 
   for (const node of matchedNodes) {
     const aTexts = aByNode.get(node) ?? [];
@@ -128,15 +135,29 @@ export function diffArms(a: ArmSnapshot, b: ArmSnapshot): KnowledgeDiff {
     const onlyA = multisetDifference(aTexts, bTexts);
     const onlyB = multisetDifference(bTexts, aTexts);
 
-    const changed = Math.min(onlyA.length, onlyB.length);
-    const removed = onlyA.length - changed;
-    const added = onlyB.length - changed;
-    if (changed === 0 && removed === 0 && added === 0) continue;
+    const changedCount = Math.min(onlyA.length, onlyB.length);
+    const changed = onlyA.slice(0, changedCount).map((text, index) => ({ a: text, b: onlyB[index]! }));
+    const removed = onlyA.slice(changedCount);
+    const added = onlyB.slice(changedCount);
+    if (changed.length === 0 && removed.length === 0 && added.length === 0) continue;
 
-    perNode.push({ node, added, removed, changed });
-    addedRecords += added;
-    removedRecords += removed;
-    changedRecords += changed;
+    perNode.push({ node, presence: 'both', added, removed, changed });
+  }
+
+  for (const node of onlyInA) {
+    perNode.push({ node, presence: 'only-a', added: [], removed: aByNode.get(node) ?? [], changed: [] });
+  }
+  for (const node of onlyInB) {
+    perNode.push({ node, presence: 'only-b', added: bByNode.get(node) ?? [], removed: [], changed: [] });
+  }
+
+  let addedRecords = 0;
+  let removedRecords = 0;
+  let changedRecords = 0;
+  for (const entry of perNode) {
+    addedRecords += entry.added.length;
+    removedRecords += entry.removed.length;
+    changedRecords += entry.changed.length;
   }
 
   return {

@@ -12,16 +12,23 @@
  * construction, and a third "control" arm re-runs arm A's configuration so the
  * A-vs-B numbers can be read against the model's own nondeterminism.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
-import { diffArms } from '../../src/processors/observational-memory/simulate/diff';
-import type { KnowledgeDiff } from '../../src/processors/observational-memory/simulate/diff';
-import { armConfigHash, assertArmsComparable } from '../../src/processors/observational-memory/simulate/drive';
-import type { ArmConfig } from '../../src/processors/observational-memory/simulate/drive';
-import { cadenceOrOff, parseFlags, positiveInt, recreateDatabase, runArm, snapshotArm } from './replay';
+import { diffArms } from './diff';
+import type { KnowledgeDiff } from './diff';
+import { armConfigHash, assertArmsComparable } from './drive';
+import type { ArmConfig } from './drive';
+import { armDatabaseUrl, cadenceOrOff, parseFlags, positiveInt, recreateDatabase, runArm, snapshotArm } from './replay';
 
 function readInstructions(path: string | undefined): string | undefined {
   return path ? readFileSync(path, 'utf8').trim() : undefined;
+}
+
+function indentBlock(text: string, prefix: string): string {
+  return text
+    .split('\n')
+    .map(line => `${prefix}${line}`)
+    .join('\n');
 }
 
 function printDiff(label: string, diff: KnowledgeDiff) {
@@ -32,6 +39,21 @@ function printDiff(label: string, diff: KnowledgeDiff) {
   console.log(`  records added       : ${diff.addedRecords}`);
   console.log(`  records removed     : ${diff.removedRecords}`);
   console.log(`  records changed     : ${diff.changedRecords}`);
+
+  // Aggregate counts say how MUCH diverged; only the per-node text says WHETHER the
+  // change made the knowledge better, worse, or merely different.
+  for (const entry of diff.perNode) {
+    const presence =
+      entry.presence === 'both' ? '' : entry.presence === 'only-a' ? ' (only in first arm)' : ' (only in second arm)';
+    console.log(`  node "${entry.node}"${presence}:`);
+    for (const pair of entry.changed) {
+      console.log(`    ~ changed:`);
+      console.log(indentBlock(`a: ${pair.a}`, '      '));
+      console.log(indentBlock(`b: ${pair.b}`, '      '));
+    }
+    for (const text of entry.removed) console.log(indentBlock(`- ${text}`, '    '));
+    for (const text of entry.added) console.log(indentBlock(`+ ${text}`, '    '));
+  }
 }
 
 async function main() {
@@ -54,6 +76,7 @@ async function main() {
   const organizationId = args.get('org') ?? 'simulate';
   const onlyThreads = args.getAll('thread-id');
   const runControl = args.get('control') !== 'false';
+  const reportPath = args.get('report');
 
   const shared = {
     curationCadence: cadenceOrOff('cadence', args.get('cadence'), 1),
@@ -77,9 +100,9 @@ async function main() {
   const control: ArmConfig = { ...armA, name: 'control' };
 
   const targets = {
-    a: `${targetPrefix}_a`,
-    b: `${targetPrefix}_b`,
-    control: `${targetPrefix}_control`,
+    a: armDatabaseUrl(targetPrefix, 'a'),
+    b: armDatabaseUrl(targetPrefix, 'b'),
+    control: armDatabaseUrl(targetPrefix, 'control'),
   };
 
   const arms: [ArmConfig, string][] = [
@@ -119,6 +142,22 @@ async function main() {
   printDiff('A vs B (prompt change)', abDiff);
   if (controlDiff) printDiff('A vs A (control: model noise floor)', controlDiff);
 
+  if (reportPath) {
+    // The full structured diff — everything printDiff shows plus the matched-node lists —
+    // for downstream tooling that wants more than the greppable summary lines.
+    const report = {
+      model: { capture: captureModel, curate: curateModel },
+      armConfigHashes: { a: armConfigHash(armA), b: armConfigHash(armB) },
+      threadsReplayed,
+      cyclesReplayed,
+      abDiff,
+      controlDiff: controlDiff ?? null,
+      curationOutcomes: outcomes,
+    };
+    writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+    console.log(`REPORT=${reportPath}`);
+  }
+
   console.log(`SOURCE_THREADS=${threadsReplayed}`);
   console.log(`CYCLES_REPLAYED=${cyclesReplayed}`);
   console.log(`MODEL=${captureModel}|${curateModel}`);
@@ -141,15 +180,18 @@ async function main() {
   // An arm whose curator never completed holds raw capture output. Its knowledge is at a
   // different stage of the pipeline than an arm that curated, so the diff measures that
   // difference as much as it measures the prompt. Say so instead of letting the numbers imply
-  // a clean comparison.
-  const uncurated = Object.entries(outcomes)
-    .filter(([, counts]) => !counts.ran)
-    .map(([arm]) => arm);
-  console.log(`UNCURATED_ARMS=${uncurated.length ? uncurated.join(',') : 'none'}`);
-  for (const arm of uncurated) {
-    console.log(
-      `WARNING: arm ${arm} completed 0 curations — its knowledge is uncurated capture output and the diff is not a curated-vs-curated comparison.`,
-    );
+  // a clean comparison. With the cadence off every arm is uncurated by design, so the
+  // warning would be noise — the run asked for a raw-capture comparison.
+  if (shared.curationCadence !== false) {
+    const uncurated = Object.entries(outcomes)
+      .filter(([, counts]) => !counts.ran)
+      .map(([arm]) => arm);
+    console.log(`UNCURATED_ARMS=${uncurated.length ? uncurated.join(',') : 'none'}`);
+    for (const arm of uncurated) {
+      console.log(
+        `WARNING: arm ${arm} completed 0 curations — its knowledge is uncurated capture output and the diff is not a curated-vs-curated comparison.`,
+      );
+    }
   }
 }
 

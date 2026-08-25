@@ -15,11 +15,11 @@ import { pathToFileURL } from 'node:url';
 import { Agent } from '@mastra/core/agent';
 
 import { Memory } from '../../src/index';
-import type { ArmSnapshot } from '../../src/processors/observational-memory/simulate/diff';
-import { buildArmSubconscious, replayCycles } from '../../src/processors/observational-memory/simulate/drive';
-import type { ArmConfig } from '../../src/processors/observational-memory/simulate/drive';
-import { reconstructCycles } from '../../src/processors/observational-memory/simulate/reconstruct';
+import type { ArmSnapshot } from './diff';
+import { buildArmSubconscious, replayCycles } from './drive';
+import type { ArmConfig } from './drive';
 import { assertLocalTarget } from './extract';
+import { reconstructCycles } from './reconstruct';
 
 /** Minimal `--flag value` reader; the extractor's parser is specific to its own flags. */
 export function parseFlags(argv: string[]): Map<string, string[]> {
@@ -45,14 +45,29 @@ export function positiveInt(flag: string, value: string | undefined, fallback: n
 }
 
 /**
- * Cadence accepts the literal `off` in addition to a positive integer. `off` stops the
- * driver from ever calling the curator itself, so a run can serve as evidence about when
- * the library decides to curate on its own — with a cadence set, the driver's calls and
- * the library's are indistinguishable in the results.
+ * Cadence accepts the literal `off` in addition to a positive integer. `off` means raw
+ * capture without curation: the driver's `runCuration` calls are the only curation path
+ * in this replay (nothing here runs the OM lifecycle), so turning them off guarantees
+ * zero curations. The knowledge left behind is uncurated capture output — useful for
+ * A/B-ing capture prompts in isolation, useless for observing lifecycle curation.
  */
 export function cadenceOrOff(flag: string, value: string | undefined, fallback: number): number | false {
   if (value === 'off') return false;
   return positiveInt(flag, value, fallback);
+}
+
+/**
+ * Derive an arm's database URL by suffixing the database name, not the raw string.
+ * Naive `` `${url}_a` `` appends to whatever the URL happens to end with — for
+ * `postgres://host/simulate?sslmode=disable` that yields `sslmode=disable_a`, leaving
+ * every arm pointed at the same database and destroying the isolation guarantee.
+ */
+export function armDatabaseUrl(prefix: string, suffix: string): string {
+  const url = new URL(prefix);
+  const database = url.pathname.replace(/^\//, '');
+  if (!database) throw new Error(`--target-prefix must include a database name, got "${prefix}"`);
+  url.pathname = `/${database}_${suffix}`;
+  return url.toString();
 }
 
 // `pg` and `@mastra/pg` are not dependencies of this package; borrow the workspace
@@ -256,8 +271,8 @@ async function main() {
   });
 
   console.log(`ARM=${arm.name}`);
-  // Printed because a curation count means opposite things with the cadence on and off:
-  // with it on the driver produced them, with it off the system under test did.
+  // Printed so a reader can tell curated output (cadence N) from raw capture output
+  // (cadence off, which always reports zero curations).
   console.log(`DRIVER_CADENCE=${arm.curationCadence === false ? 'off' : arm.curationCadence}`);
   console.log(`CAPTURE_MODEL=${captureModel}`);
   console.log(`CURATE_MODEL=${curateModel}`);

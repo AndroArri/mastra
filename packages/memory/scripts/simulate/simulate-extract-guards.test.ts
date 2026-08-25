@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  assertLocalTarget,
-  buildThreadSelection,
-  isLocalPostgresUrl,
-  parseArgs,
-} from '../../../../scripts/simulate/extract';
-import { cadenceOrOff, positiveInt } from '../../../../scripts/simulate/replay';
+import { assertLocalTarget, buildThreadSelection, isLocalPostgresUrl, parseArgs } from './extract';
+import { armDatabaseUrl, cadenceOrOff, positiveInt } from './replay';
 
 describe('simulate extract — local target guard', () => {
   it.each([
@@ -71,6 +66,36 @@ describe('simulate extract — arg parsing', () => {
 
   it('rejects unknown flags', () => {
     expect(() => parseArgs(['--nope'])).toThrow(/unknown flag/);
+  });
+});
+
+describe('simulate replay — arm database URLs', () => {
+  it('suffixes the database name, not the raw string', () => {
+    expect(armDatabaseUrl('postgres://user@127.0.0.1:55432/simulate_run', 'a')).toBe(
+      'postgres://user@127.0.0.1:55432/simulate_run_a',
+    );
+  });
+
+  it('preserves query parameters instead of suffixing them', () => {
+    // The bug this guards against: `${prefix}_a` on a URL ending in `?sslmode=disable`
+    // produced `sslmode=disable_a`, pointing every arm at the SAME database.
+    expect(armDatabaseUrl('postgres://localhost/simulate?sslmode=disable', 'a')).toBe(
+      'postgres://localhost/simulate_a?sslmode=disable',
+    );
+    expect(armDatabaseUrl('postgres://localhost/simulate?sslmode=disable', 'b')).toBe(
+      'postgres://localhost/simulate_b?sslmode=disable',
+    );
+  });
+
+  it('preserves credentials, port, and multiple query params', () => {
+    expect(
+      armDatabaseUrl('postgres://user:pw@127.0.0.1:55432/simulate?sslmode=disable&application_name=sim', 'control'),
+    ).toBe('postgres://user:pw@127.0.0.1:55432/simulate_control?sslmode=disable&application_name=sim');
+  });
+
+  it('refuses a prefix with no database name', () => {
+    expect(() => armDatabaseUrl('postgres://localhost', 'a')).toThrow(/database name/);
+    expect(() => armDatabaseUrl('postgres://localhost/?sslmode=disable', 'a')).toThrow(/database name/);
   });
 });
 

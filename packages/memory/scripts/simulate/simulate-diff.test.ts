@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ArmSnapshot } from '../simulate/diff';
-import { diffArms } from '../simulate/diff';
+import type { ArmSnapshot } from './diff';
+import { diffArms } from './diff';
 
 function snapshot(
   nodes: { id: string; name: string }[],
@@ -104,6 +104,91 @@ describe('diffArms', () => {
     expect(diff.changedRecords).toBe(1);
     expect(diff.addedRecords).toBe(0);
     expect(diff.removedRecords).toBe(0);
-    expect(diff.perNode).toEqual([{ node: 'project atlas', added: 0, removed: 0, changed: 1 }]);
+    expect(diff.perNode).toEqual([
+      {
+        node: 'project atlas',
+        presence: 'both',
+        added: [],
+        removed: [],
+        changed: [{ a: 'atlas is owned by the platform team.', b: 'atlas is owned by the infrastructure team.' }],
+      },
+    ]);
+  });
+
+  it('counts records under one-arm-unique nodes in the added/removed totals', () => {
+    const a = snapshot(
+      [
+        { id: 'n1', name: 'Project Atlas' },
+        { id: 'n2', name: 'Legacy System' },
+      ],
+      [
+        { id: 'r1', node: 'n1', text: 'Atlas ships on Fridays.' },
+        { id: 'r2', node: 'n2', text: 'The legacy system is deprecated.' },
+        { id: 'r3', node: 'n2', text: 'The legacy system runs on-prem.' },
+      ],
+    );
+    const b = snapshot(
+      [
+        { id: 'x1', name: 'Project Atlas' },
+        { id: 'x2', name: 'New Service' },
+      ],
+      [
+        { id: 'y1', node: 'x1', text: 'Atlas ships on Fridays.' },
+        { id: 'y2', node: 'x2', text: 'The new service launched in May.' },
+      ],
+    );
+
+    const diff = diffArms(a, b);
+
+    expect(diff.onlyInA).toEqual(['legacy system']);
+    expect(diff.onlyInB).toEqual(['new service']);
+    // Records under nodes unique to one arm must not disappear from the totals.
+    expect(diff.removedRecords).toBe(2);
+    expect(diff.addedRecords).toBe(1);
+    expect(diff.changedRecords).toBe(0);
+    expect(diff.perNode).toEqual([
+      {
+        node: 'legacy system',
+        presence: 'only-a',
+        added: [],
+        removed: ['the legacy system is deprecated.', 'the legacy system runs on-prem.'],
+        changed: [],
+      },
+      {
+        node: 'new service',
+        presence: 'only-b',
+        added: ['the new service launched in may.'],
+        removed: [],
+        changed: [],
+      },
+    ]);
+  });
+
+  it('carries normalized record text in per-node added and removed lists', () => {
+    const a = snapshot(
+      [{ id: 'n1', name: 'Project Atlas' }],
+      [{ id: 'r1', node: 'n1', text: '  Atlas   ships\n on Fridays. ' }],
+    );
+    const b = snapshot(
+      [{ id: 'x1', name: 'Project Atlas' }],
+      [
+        { id: 'y1', node: 'x1', text: 'Atlas ships on Fridays.' },
+        { id: 'y2', node: 'x1', text: 'Atlas has a staging environment.' },
+      ],
+    );
+
+    const diff = diffArms(a, b);
+
+    expect(diff.addedRecords).toBe(1);
+    expect(diff.removedRecords).toBe(0);
+    expect(diff.perNode).toEqual([
+      {
+        node: 'project atlas',
+        presence: 'both',
+        added: ['atlas has a staging environment.'],
+        removed: [],
+        changed: [],
+      },
+    ]);
   });
 });

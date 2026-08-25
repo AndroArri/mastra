@@ -1,6 +1,6 @@
 import type { ObservationalMemoryRecord } from '@mastra/core/storage';
 
-import { BOUNDARY_WITH_DATE_RE } from '../observation-utils';
+import { BOUNDARY_WITH_DATE_RE } from '../../src/processors/observational-memory/observation-utils';
 
 /**
  * One replayable observation cycle recovered from a persisted OM record.

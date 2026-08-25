@@ -4,10 +4,10 @@ import { InMemoryStore } from '@mastra/core/storage';
 import type { MastraEmbeddingModel, MastraVector } from '@mastra/core/vector';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Memory, Subconscious } from '../../../index';
-import { armConfigHash, assertArmsComparable, buildArmSubconscious, replayCycles } from '../simulate/drive';
-import type { ArmConfig } from '../simulate/drive';
-import type { ReconstructedCycle } from '../simulate/reconstruct';
+import { Memory, Subconscious } from '../../src/index';
+import { armConfigHash, assertArmsComparable, buildArmSubconscious, replayCycles } from './drive';
+import type { ArmConfig } from './drive';
+import type { ReconstructedCycle } from './reconstruct';
 
 const semanticInfrastructure = {
   vector: {} as MastraVector,
@@ -128,8 +128,8 @@ describe('replayCycles', () => {
     const runCuration = vi.spyOn(memory, 'runCuration');
 
     // 3 cycles with the cadence off: the scheduled branch and the flush must both stay
-    // shut. This is the mode that lets a run be evidence about the library's own
-    // curation triggers — a single driver-initiated call would invalidate it.
+    // shut. Cadence off means raw capture with zero curation — the driver's own
+    // runCuration calls are the only curation path, and off skips them entirely.
     const result = await run(memory, { cycles: cycles(3), curationCadence: false });
 
     expect(result.cyclesReplayed).toBe(3);
