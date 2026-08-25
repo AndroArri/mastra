@@ -1,5 +1,15 @@
 # @mastra/core
 
+## 1.62.0-alpha.11
+
+### Patch Changes
+
+- Fixed the `onDelegationComplete` hook so its `result` now includes `finishReason` (on both `generate()` and `stream()` paths) and its type declares `subAgentToolResults`. Hooks can now tell whether a sub-agent actually finished (`finishReason: 'stop'`) or was cut off mid tool-call, and can read sub-agent tool results without casting. Fixes #21942. ([#22311](https://github.com/mastra-ai/mastra/pull/22311))
+
+- Fix Workspace tool output-validation errors reaching the model as untagged objects. `sandboxToModelOutput` now converts Mastra validation-error envelopes to AI SDK `{ type: 'error-json', value }` tool results, so OpenAI-compatible providers serialize a tool message with valid `content` instead of rejecting the request. ([#22306](https://github.com/mastra-ai/mastra/pull/22306))
+
+- Fixed resumed sub-agent delegations failing thread-ownership validation. The resume path backfilled the thread from the suspended run's snapshot but still passed a freshly generated resource ID, so resuming a delegated run threw "A thread can only be used by the resource that owns it". Both the thread and resource are now restored from the snapshot on resume. Also fixed model stream transport handles (e.g. WebSocket routing) being dropped when `modelSettings.timeout` wraps the model stream. ([#22287](https://github.com/mastra-ai/mastra/pull/22287))
+
 ## 1.62.0-alpha.10
 
 ### Patch Changes

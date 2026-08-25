@@ -1,5 +1,24 @@
 # @mastra/e2b
 
+## 0.10.0-alpha.4
+
+### Minor Changes
+
+- Added deterministic reattach to E2B sandboxes by provider sandbox ID. Pass the persisted E2B sandbox ID via the new `sandboxId` option (or `clone({ sandboxId })`) and `start()` connects to that exact sandbox — resuming it if paused — instead of discovering by logical id metadata. Only a typed "sandbox gone" error falls back to the usual lookup-or-create path; auth, quota, rate-limit, timeout, and network errors now propagate instead of silently creating a duplicate sandbox. The resolved provider ID is exposed via the new `sandbox.sandboxId` property so it can be persisted across restarts. ([#22316](https://github.com/mastra-ai/mastra/pull/22316))
+
+  ```ts
+  const sandbox = new E2BSandbox({ id: 'my-workspace', sandboxId: persistedId });
+  await sandbox.start();
+  await save(sandbox.sandboxId); // persist for the next process
+  ```
+
+  Fixes https://github.com/mastra-ai/mastra/issues/22300
+
+### Patch Changes
+
+- Updated dependencies [[`4ff3ee2`](https://github.com/mastra-ai/mastra/commit/4ff3ee2bff7ed07528b4817f8f49639031c72a4d), [`32d3583`](https://github.com/mastra-ai/mastra/commit/32d358332cb8ac2306b83b73cf3536e74dbd435e), [`aca2869`](https://github.com/mastra-ai/mastra/commit/aca2869b2031982f3c4a2f52525c9be7cf123ef8)]:
+  - @mastra/core@1.62.0-alpha.11
+
 ## 0.10.0-alpha.3
 
 ### Patch Changes
