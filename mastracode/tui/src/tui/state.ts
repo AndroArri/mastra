@@ -50,6 +50,32 @@ import type { RenderScheduler } from './render-scheduler.js';
 import { getEditorTheme, mastra, TERM_WIDTH_BUFFER } from './theme.js';
 import { VoiceController } from './voice/voice-controller.js';
 
+export interface SubagentActivityRecord {
+  kind: 'tool' | 'text';
+  timestamp: number;
+  name?: string;
+  args?: unknown;
+  result?: string;
+  isError?: boolean;
+  done?: boolean;
+  text?: string;
+}
+
+export interface SubagentRunRecord {
+  toolCallId: string;
+  agentType: string;
+  task: string;
+  modelId?: string;
+  forked?: boolean;
+  status: 'running' | 'completed' | 'error' | 'aborted';
+  startedAt: number;
+  endedAt?: number;
+  durationMs?: number;
+  activities: SubagentActivityRecord[];
+  finalResult?: string;
+  error?: string;
+}
+
 export interface PendingSignalMessage {
   component: Component;
   text: string;
@@ -221,6 +247,8 @@ export interface TUIState {
   allShellComponents: ShellStreamComponent[];
   /** Track active subagent tasks */
   pendingSubagents: Map<string, SubagentExecutionComponent>;
+  /** Structured record history of all subagent runs in the active session */
+  subagentRuns: Map<string, SubagentRunRecord>;
   toolOutputExpanded: boolean;
   hideThinkingBlock: boolean;
   quietMode: boolean;
@@ -420,6 +448,7 @@ export function createTUIState(options: MastraTUIOptions): TUIState {
     messageComponentsById: new Map(),
     allShellComponents: [],
     pendingSubagents: new Map(),
+    subagentRuns: new Map(),
     toolOutputExpanded: false,
     hideThinkingBlock: true,
     quietMode: false,

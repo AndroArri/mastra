@@ -939,6 +939,29 @@ export async function renderExistingMessages(state: TUIState): Promise<void> {
             }
             // Mark as finished with result
             subComponent.finish(isErr ?? false, durationMs, resultText);
+
+            if (part.callId) {
+              state.subagentRuns.set(part.callId, {
+                toolCallId: part.callId,
+                agentType: subArgs?.agentType ?? 'unknown',
+                task: subArgs?.task ?? '',
+                modelId,
+                forked: subArgs?.forked,
+                status: isErr ? 'error' : 'completed',
+                startedAt: Date.now() - durationMs,
+                endedAt: Date.now(),
+                durationMs,
+                finalResult: resultText,
+                activities: (meta?.toolCalls ?? []).map(tc => ({
+                  kind: 'tool',
+                  timestamp: Date.now(),
+                  name: tc.name,
+                  done: true,
+                  isError: tc.isError,
+                })),
+              });
+            }
+
             insertChatComponentWithBoundarySpacing(state.chatContainer, subComponent);
             state.allToolComponents.push(subComponent as any);
             continue;

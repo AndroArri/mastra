@@ -128,23 +128,27 @@ function getConfiguredSubagentTypes(
     : BUILT_IN_SUBAGENT_TYPES;
 }
 
+import { SubagentPanelComponent } from '../components/subagent-panel.js';
+
 export async function handleSubagentsCommand(ctx: SlashCommandContext): Promise<void> {
-  const agentTypes = getConfiguredSubagentTypes(ctx);
+  return new Promise(resolve => {
+    const panel = new SubagentPanelComponent({
+      tui: ctx.state.ui,
+      state: ctx.state,
+      onSelectModel: (agentType: string) => {
+        ctx.state.ui.hideOverlay();
+        const agentTypes = getConfiguredSubagentTypes(ctx);
+        const match = agentTypes.find(t => t.id === agentType);
+        const label = match ? match.label : agentType;
+        showSubagentScopeThenList(ctx, agentType, label).then(resolve);
+      },
+      onClose: () => {
+        ctx.state.ui.hideOverlay();
+        resolve();
+      },
+    });
 
-  const answer = await askModalQuestion(ctx.state.ui, {
-    question: 'Select subagent type',
-    options: agentTypes.map(t => ({
-      label: t.label,
-      description: t.description,
-    })),
+    showModalOverlay(ctx.state.ui, panel, { widthPercent: 0.85, maxHeight: '80%' });
+    panel.focused = true;
   });
-
-  try {
-    const selected = agentTypes.find(t => t.label === answer);
-    if (selected) {
-      await showSubagentScopeThenList(ctx, selected.id, selected.label);
-    }
-  } catch (err) {
-    ctx.showError(`Subagent selection failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
 }

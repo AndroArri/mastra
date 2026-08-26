@@ -21,8 +21,8 @@
     },
     "./*": {
       "import": {
-        "types": "./dist/*.d.ts",
-        "default": "./dist/*.js"
+        "types": "./src/*.ts",
+        "default": "./src/*.ts"
       }
     },
     "./package.json": "./package.json"

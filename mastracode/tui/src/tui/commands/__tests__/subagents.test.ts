@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleSubagentsCommand } from '../subagents.js';
 import type { SlashCommandContext } from '../types.js';
 
-const askQuestionMock = vi.fn();
+const showModalOverlayMock = vi.fn();
+const hideOverlayMock = vi.fn();
 
-vi.mock('../../modal-question.js', () => ({
-  askModalQuestion: vi.fn(async (_ui, props) => {
-    askQuestionMock(props);
-    return null;
+vi.mock('../../overlay.js', () => ({
+  showModalOverlay: vi.fn((ui, component, options) => {
+    showModalOverlayMock(ui, component, options);
   }),
 }));
 
@@ -19,13 +19,23 @@ function createContext(subagents?: Array<{ id: string; name: string; description
 
   const ctx = {
     state: {
+      subagentRuns: new Map(),
       controller: {
         config: {
           subagents,
         },
       },
+      session: {
+        subagents: {
+          model: {
+            get: vi.fn(),
+            set: vi.fn(),
+          },
+        },
+      },
       ui: {
         requestRender: vi.fn(),
+        hideOverlay: hideOverlayMock,
       },
       chatContainer,
       activeInlineQuestion: undefined,
@@ -40,72 +50,23 @@ function createContext(subagents?: Array<{ id: string; name: string; description
 
 describe('handleSubagentsCommand', () => {
   beforeEach(() => {
-    askQuestionMock.mockReset();
+    showModalOverlayMock.mockReset();
+    hideOverlayMock.mockReset();
   });
 
-  it('falls back to built-in subagent types when no custom subagents are configured', async () => {
-    const { ctx, chatContainer } = createContext();
+  it('opens SubagentPanelComponent modal overlay', async () => {
+    const { ctx } = createContext();
 
-    await handleSubagentsCommand(ctx);
+    const cmdPromise = handleSubagentsCommand(ctx);
 
-    expect(askQuestionMock).toHaveBeenCalledTimes(1);
-    const question = askQuestionMock.mock.calls[0]?.[0];
-    expect(question.question).toBe('Select subagent type');
-    expect(question.options).toEqual([
-      { label: 'Explore', description: 'Read-only codebase exploration' },
-      { label: 'Plan', description: 'Read-only analysis and planning' },
-      { label: 'Execute', description: 'Task execution with write access' },
-    ]);
-    expect(chatContainer.addChild).not.toHaveBeenCalled();
-  });
+    expect(showModalOverlayMock).toHaveBeenCalledTimes(1);
+    const component = showModalOverlayMock.mock.calls[0]?.[1];
+    expect(component).toBeDefined();
 
-  it('falls back to built-in subagent types when subagents is an empty array', async () => {
-    const { ctx } = createContext([]);
+    // Simulate closing the modal overlay
+    component.handleInput('\x1b');
+    await cmdPromise;
 
-    await handleSubagentsCommand(ctx);
-
-    expect(askQuestionMock).toHaveBeenCalledTimes(1);
-    const question = askQuestionMock.mock.calls[0]?.[0];
-    expect(question.options).toEqual([
-      { label: 'Explore', description: 'Read-only codebase exploration' },
-      { label: 'Plan', description: 'Read-only analysis and planning' },
-      { label: 'Execute', description: 'Task execution with write access' },
-    ]);
-  });
-
-  it('renders configured subagents from the controller config', async () => {
-    const { ctx } = createContext([
-      {
-        id: 'explore',
-        name: 'Explore',
-        description: 'Read-only codebase exploration',
-      },
-      {
-        id: 'plan',
-        name: 'Plan',
-        description: 'Read-only analysis and planning',
-      },
-      {
-        id: 'execute',
-        name: 'Execute',
-        description: 'Task execution with write access',
-      },
-      {
-        id: 'test-writer',
-        name: 'Test Writer',
-        description: 'Write tests for the specified module',
-      },
-    ]);
-
-    await handleSubagentsCommand(ctx);
-
-    expect(askQuestionMock).toHaveBeenCalledTimes(1);
-    const question = askQuestionMock.mock.calls[0]?.[0];
-    expect(question.options).toEqual([
-      { label: 'Explore', description: 'Read-only codebase exploration' },
-      { label: 'Plan', description: 'Read-only analysis and planning' },
-      { label: 'Execute', description: 'Task execution with write access' },
-      { label: 'Test Writer', description: 'Write tests for the specified module' },
-    ]);
+    expect(hideOverlayMock).toHaveBeenCalledTimes(1);
   });
 });

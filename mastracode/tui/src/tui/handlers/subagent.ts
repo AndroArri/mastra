@@ -17,6 +17,17 @@ export function handleSubagentStart(
   forked?: boolean,
 ): void {
   const { state } = ctx;
+  state.subagentRuns.set(toolCallId, {
+    toolCallId,
+    agentType,
+    task,
+    modelId,
+    forked,
+    status: 'running',
+    startedAt: Date.now(),
+    activities: [],
+  });
+
   const component = new SubagentExecutionComponent(agentType, task, state.ui, modelId, {
     collapseOnComplete: false,
     expandOnComplete: state.quietMode,
@@ -47,6 +58,17 @@ export function handleSubagentToolStart(
   subToolName: string,
   subToolArgs: unknown,
 ): void {
+  const run = ctx.state.subagentRuns.get(toolCallId);
+  if (run) {
+    run.activities.push({
+      kind: 'tool',
+      timestamp: Date.now(),
+      name: subToolName,
+      args: subToolArgs,
+      done: false,
+    });
+  }
+
   const component = ctx.state.pendingSubagents.get(toolCallId);
   if (component) {
     component.addToolStart(subToolName, subToolArgs);
@@ -61,10 +83,50 @@ export function handleSubagentToolEnd(
   subToolResult: unknown,
   isError: boolean,
 ): void {
+  const run = ctx.state.subagentRuns.get(toolCallId);
+  if (run) {
+    const act = run.activities.slice().reverse().find(a => a.kind === 'tool' && a.name === subToolName && !a.done);
+    const resultStr = typeof subToolResult === 'string' ? subToolResult : JSON.stringify(subToolResult);
+    if (act) {
+      act.result = resultStr;
+      act.isError = isError;
+      act.done = true;
+    } else {
+      run.activities.push({
+        kind: 'tool',
+        timestamp: Date.now(),
+        name: subToolName,
+        result: resultStr,
+        isError,
+        done: true,
+      });
+    }
+  }
+
   const component = ctx.state.pendingSubagents.get(toolCallId);
   if (component) {
     component.addToolEnd(subToolName, subToolResult, isError);
     requestRender(ctx.state);
+  }
+}
+
+export function handleSubagentTextDelta(
+  ctx: EventHandlerContext,
+  toolCallId: string,
+  delta: string,
+): void {
+  const run = ctx.state.subagentRuns.get(toolCallId);
+  if (run) {
+    const lastAct = run.activities[run.activities.length - 1];
+    if (lastAct && lastAct.kind === 'text') {
+      lastAct.text = (lastAct.text ?? '') + delta;
+    } else {
+      run.activities.push({
+        kind: 'text',
+        timestamp: Date.now(),
+        text: delta,
+      });
+    }
   }
 }
 
@@ -75,6 +137,16 @@ export function handleSubagentEnd(
   durationMs: number,
   result?: string,
 ): void {
+  const run = ctx.state.subagentRuns.get(toolCallId);
+  if (run) {
+    if (run.status === 'running') {
+      run.status = isError ? 'error' : 'completed';
+    }
+    run.endedAt = Date.now();
+    run.durationMs = durationMs;
+    run.finalResult = result;
+  }
+
   const component = ctx.state.pendingSubagents.get(toolCallId);
   if (component) {
     component.finish(isError, durationMs, result);

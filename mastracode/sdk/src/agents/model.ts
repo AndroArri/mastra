@@ -167,6 +167,40 @@ export function resolveModel(
   });
 }
 
+export interface FallbackModelOptions {
+  thinkingLevel?: ThinkingLevelSetting;
+  remapForCodexOAuth?: boolean;
+  requestContext?: RequestContext;
+  fallbackModelIds?: string[];
+  onFallback?: (failedModelId: string, fallbackModelId: string, error: unknown) => void;
+}
+
+/**
+ * Resolve a model ID to a GatewayLanguageModel, attempting configured fallbacks if primary fails.
+ */
+export function resolveModelWithFallback(
+  modelId: string,
+  options?: FallbackModelOptions,
+): GatewayLanguageModel {
+  const fallbacks = options?.fallbackModelIds ?? [];
+  const candidates = [modelId, ...fallbacks];
+  let lastError: unknown;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const candidateId = candidates[i]!;
+    try {
+      return resolveModel(candidateId, options);
+    } catch (err) {
+      lastError = err;
+      if (i < candidates.length - 1) {
+        options?.onFallback?.(candidateId, candidates[i + 1]!, err);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export interface ThinkingRequestContext {
   state?: { thinkingLevel?: unknown };
   session?: { modeId?: string };
