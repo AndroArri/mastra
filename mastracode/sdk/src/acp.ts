@@ -1,1 +1,1 @@
-export { MastraCodeAcpAgent } from './acp/agent.js';
+export * from './acp/index.js';

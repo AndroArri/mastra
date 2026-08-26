@@ -1498,6 +1498,7 @@ export async function prepareAgentControllerMount(
 export const createMastraCode = bootLocalAgentController;
 export * from './knowledge-inspector.js';
 
+
 /**
  * Programmatic headless API. `runMC` runs an already-built controller/session
  * (from {@link createMastraCode}) as an async-iterable run that also resolves to
@@ -1528,3 +1529,44 @@ export type {
   ResolutionPolicy,
   PermissionMode,
 } from './headless/index.js';
+
+export * from './acp.js';
+
+export * from './sandbox/index.js';
+
+export * from './memory/index.js';
+
+export * from './skills/index.js';
+
+export * from './connections/index.js';
+
+export * from './auth/index.js';
+
+export * from './browser/index.js';
+
+export {
+  DEFAULT_SUBAGENT_MODELS,
+  SubagentModelRouter,
+  defaultSubagentModelRouter,
+  resolveAgentModel,
+} from './agents/subagent-routing.js';
+export type {
+  AgentModelRoutingConfig,
+  KnownAgentType,
+  PrimaryAgentType,
+  SpecializedSubagentType,
+} from './agents/subagent-routing.js';
+
+export { SubagentOrchestrator, isolateContext } from './agents/subagent-orchestrator.js';
+export type {
+  ExecutionTreeListener,
+  SubagentExecutionNode,
+  SubagentExecutionStatus,
+  SubagentExecutor,
+  SubagentTaskConfig,
+} from './agents/subagent-orchestrator.js';
+
+export * from './workflows/index.js';
+
+
+

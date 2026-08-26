@@ -10,7 +10,9 @@ import { randomUUID } from 'node:crypto';
 import { deleteWorkflow, getWorkflow, listWorkflows, runWorkflow } from '@mastra/code-sdk/workflows/service';
 import type { StoredWorkflowRow, WorkflowRunEvent } from '@mastra/code-sdk/workflows/service';
 import { RequestContext } from '@mastra/core/request-context';
+import { renderWorkflowDagTui } from '../workflow-dag-tui.js';
 import type { SlashCommandContext } from './types.js';
+
 
 /**
  * Build the minimal `AgentControllerRequestContext`-shaped controller value
@@ -353,6 +355,14 @@ export async function handleWorkflowsCommand(
         }
         ctx.showInfo(JSON.stringify(def, null, 2));
         ctx.showInfo(renderWorkflowDefinition(def));
+        if (Array.isArray(def.graph) && def.graph.length > 0) {
+          const tuiDagSteps = def.graph.map((g: any, i: number) => ({
+            id: g.id || `step_${i + 1}`,
+            name: g.id || g.type,
+            dependencies: g.dependencies || [],
+          }));
+          ctx.showInfo(renderWorkflowDagTui(tuiDagSteps));
+        }
         return;
       }
       case 'run': {
