@@ -2,9 +2,9 @@ import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
-import { PKCEOAuthFlow } from './pkce-flow.js';
-import { DeviceCodeOAuthFlow } from './device-code-flow.js';
-import { SecretStore } from '../connections/secret-store.js';
+import { PKCEOAuthFlow } from '../pkce-flow.js';
+import { DeviceCodeOAuthFlow } from '../device-code-flow.js';
+import { SecretStore } from '../../connections/secret-store.js';
 
 describe('OAuth Flows (PKCE & Device Code)', () => {
   let testGlobalDir: string;

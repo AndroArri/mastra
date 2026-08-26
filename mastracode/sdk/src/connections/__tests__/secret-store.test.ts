@@ -2,7 +2,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
-import { SecretStore } from './secret-store.js';
+import { SecretStore } from '../secret-store.js';
 
 describe('SecretStore', () => {
   let testGlobalDir: string;

@@ -167,9 +167,9 @@ export class SubagentOrchestrator {
         node.result = await executor(node, isolatedCtx);
       }
       node.status = 'completed';
-    } catch (err: any) {
+    } catch (err: unknown) {
       node.status = 'failed';
-      node.error = err?.message ?? String(err);
+      node.error = err instanceof Error ? err.message : String(err);
     } finally {
       node.endTime = Date.now();
       this.notifyListeners();

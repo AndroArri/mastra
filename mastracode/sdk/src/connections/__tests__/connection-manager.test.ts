@@ -2,8 +2,8 @@ import { existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { ConnectionManager } from './connection-manager.js';
-import { SecretStore } from './secret-store.js';
+import { ConnectionManager } from '../connection-manager.js';
+import { SecretStore } from '../secret-store.js';
 
 describe('ConnectionManager', () => {
   let testGlobalDir: string;
