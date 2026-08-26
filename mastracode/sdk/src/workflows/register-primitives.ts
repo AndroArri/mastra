@@ -34,6 +34,7 @@ import { workflowBuilderAgent } from '../agents/workflow-builder-agent.js';
 import type { McpManager } from '../mcp';
 import { MC_TOOLS } from '../tool-names.js';
 import { createConfiguredWebTools } from '../tools/web-search.js';
+import { registerHitlExampleWorkflow } from './hitl-example-workflow.js';
 
 export interface RegisterWorkflowBuilderPrimitivesOptions {
   projectPath: string;
@@ -110,4 +111,7 @@ export async function registerWorkflowBuilderPrimitives(
       mastra.addTool(tool, toolId);
     }
   }
+
+  // 6. Register code-defined test workflows (e.g. hitl-workflow)
+  await registerHitlExampleWorkflow(mastra);
 }

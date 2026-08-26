@@ -59,12 +59,42 @@ async function workflowDefinitionsStore(mastra: Mastra): Promise<WorkflowDefinit
 export async function listWorkflows(mastra: Mastra): Promise<{ workflows: StoredWorkflowRow[]; total: number }> {
   const store = await workflowDefinitionsStore(mastra);
   const result = await store.list({ status: 'active' });
-  return { workflows: result.definitions, total: result.total };
+  const storedIds = new Set(result.definitions.map(w => w.id));
+
+  const workflows: StoredWorkflowRow[] = [...result.definitions];
+
+  const liveWorkflows = (mastra as any).listWorkflows?.() ?? {};
+  for (const [id, wf] of Object.entries(liveWorkflows)) {
+    if (!storedIds.has(id)) {
+      workflows.push({
+        id,
+        description: (wf as any)?.description ?? 'Code-defined workflow',
+        status: 'active',
+        graph: (wf as any)?.steps ?? (wf as any)?.graph ?? [],
+      });
+    }
+  }
+
+  return { workflows, total: workflows.length };
 }
 
 export async function getWorkflow(mastra: Mastra, id: string): Promise<StoredWorkflowRow | null> {
   const store = await workflowDefinitionsStore(mastra);
-  return store.get(id);
+  const stored = await store.get(id);
+  if (stored) return stored;
+
+  const liveWorkflows = (mastra as any).listWorkflows?.() ?? {};
+  const live = (liveWorkflows as Record<string, any>)[id];
+  if (live) {
+    return {
+      id,
+      description: live.description ?? 'Code-defined workflow',
+      status: 'active',
+      graph: live.steps ?? live.graph ?? [],
+    };
+  }
+
+  return null;
 }
 
 export async function deleteWorkflow(mastra: Mastra, id: string): Promise<{ ok: true; id: string }> {

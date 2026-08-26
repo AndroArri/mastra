@@ -85,11 +85,11 @@ export function forEachSingleStepEntryWithPath(
         break;
       case 'parallel':
       case 'conditional':
-        entry.steps.forEach((child, childIndex) => visit(child, `${path}.steps.${childIndex}`));
+        entry.steps?.forEach((child, childIndex) => visit(child, `${path}.steps.${childIndex}`));
         break;
       case 'loop':
       case 'foreach':
-        visit(entry.step, `${path}.step`);
+        if (entry.step) visit(entry.step, `${path}.step`);
         break;
       case 'sleep':
       case 'sleepUntil':

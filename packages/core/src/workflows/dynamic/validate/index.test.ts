@@ -41,6 +41,15 @@ describe('validateDynamicWorkflow', () => {
       );
     });
 
+    it('handles malformed step entries with missing step object without throwing', () => {
+      const issues = validateDynamicWorkflow(
+        def({
+          graph: [{ type: 'step' } as any],
+        }),
+      );
+      expect(issues).toEqual([expect.objectContaining({ code: 'missing-step-id', path: 'graph.0.step.id' })]);
+    });
+
     it('rejects a mapping inside a container with exactly one issue', () => {
       const issues = validateDynamicWorkflow(
         def({
