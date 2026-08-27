@@ -36,7 +36,7 @@ export async function createAimockHarness(options: AimockHarnessOptions = {}): P
 
   if (options.fixtures) {
     for (const fix of options.fixtures) {
-      mock.addFixture(fix);
+      mock.addFixture(fix as any);
     }
   }
 

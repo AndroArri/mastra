@@ -7,12 +7,17 @@
  * implementation; agent tools and this slash handler both call it.
  */
 import { randomUUID } from 'node:crypto';
-import { deleteWorkflow, getWorkflow, listWorkflows, runWorkflow } from '@mastra/code-sdk/workflows/service';
+import {
+  deleteWorkflow,
+  getWorkflow,
+  listWorkflows,
+  runWorkflow,
+  resumeWorkflow,
+} from '@mastra/code-sdk/workflows/service';
 import type { StoredWorkflowRow, WorkflowRunEvent } from '@mastra/code-sdk/workflows/service';
 import { RequestContext } from '@mastra/core/request-context';
 import { renderWorkflowDagTui } from '../workflow-dag-tui.js';
 import type { SlashCommandContext } from './types.js';
-
 
 /**
  * Build the minimal `AgentControllerRequestContext`-shaped controller value
@@ -301,6 +306,8 @@ function help(ctx: SlashCommandContext): void {
       '  /workflows show <id>      Pretty-print the full graph + schemas.',
       '  /workflows run <id> <json>',
       '                            Run the workflow with the given input.',
+      '  /workflows resume <id> <runId> <stepId> <json>',
+      '                            Resume a suspended workflow with input/approval data.',
       '  /workflows delete <id>    Remove a workflow from storage.',
       '  /workflows help           Show this help.',
       '',
@@ -416,6 +423,106 @@ export async function handleWorkflowsCommand(
         if (result.status === 'success') {
           const body = result.result !== undefined ? `\n\n${JSON.stringify(result.result, null, 2)}` : '';
           ctx.showInfo(`✓ done${body}`);
+        } else if (result.status === 'suspended') {
+          const suspendedStep =
+            (result as any)?.suspendedStepId ??
+            Object.entries((result as any)?.steps ?? {}).find(
+              ([_, s]: [string, any]) => s?.status === 'suspended',
+            )?.[0];
+          const suspendPayload =
+            (result as any)?.suspendData ??
+            (suspendedStep ? (result as any)?.steps?.[suspendedStep]?.suspendPayload : undefined);
+          const runInfo = result.runId ? ` (runId: ${result.runId})` : '';
+          const stepInfo = suspendedStep ? ` at step "${suspendedStep}"` : '';
+          const payloadStr =
+            suspendPayload !== undefined ? `\n\nSuspension data:\n${JSON.stringify(suspendPayload, null, 2)}` : '';
+          const resumeHint =
+            result.runId && suspendedStep
+              ? `\n\nTo resume, run:\n/workflows resume ${id} ${result.runId} ${suspendedStep} <json-input>`
+              : '';
+          ctx.showInfo(
+            `⏸ workflow suspended (waiting for approval/input)${stepInfo}${runInfo}${payloadStr}${resumeHint}`,
+          );
+        } else {
+          const message =
+            (result.error as { message?: string } | undefined)?.message ??
+            (typeof result.error === 'string' ? result.error : 'unknown');
+          ctx.showError(`✗ workflow failed: ${message}`);
+        }
+        return;
+      }
+      case 'resume': {
+        const id = args[1];
+        const runId = args[2];
+        const stepId = args[3];
+        const preservedRawInput = rawArgsText?.match(/^\S+\s+\S+\s+\S+\s+\S+(?:\s+([\s\S]*))?$/)?.[1];
+        const rawInput = (preservedRawInput ?? args.slice(4).join(' ')).trim() || '{}';
+        if (!id || !runId || !stepId) {
+          ctx.showError('Usage: /workflows resume <id> <runId> <stepId> <json-input>');
+          return;
+        }
+        let inputData: unknown;
+        try {
+          inputData = JSON.parse(rawInput);
+        } catch (e) {
+          ctx.showError(`Invalid JSON input: ${getErrorMessage(e)}`);
+          return;
+        }
+        ctx.showInfo(`▶ Resuming "${id}" at step "${stepId}" (runId: ${runId})`);
+        const timings = new Map<string, number>();
+        const result = await resumeWorkflow(
+          mastra,
+          id,
+          runId,
+          stepId,
+          inputData,
+          buildSessionRequestContext(ctx),
+          (evt: WorkflowRunEvent) => {
+            const step = typeof evt.payload?.id === 'string' ? evt.payload.id : undefined;
+            switch (evt.type) {
+              case 'workflow-step-start': {
+                if (!step) return;
+                timings.set(step, Date.now());
+                ctx.showInfo(`  ▶ ${step}`);
+                return;
+              }
+              case 'workflow-step-result': {
+                if (!step) return;
+                const started = timings.get(step);
+                const ms = started ? Date.now() - started : undefined;
+                const status = (evt.payload as { status?: string } | undefined)?.status;
+                const mark = status === 'success' ? '✓' : status === 'failed' ? '✗' : '·';
+                ctx.showInfo(`  ${mark} ${step}${ms !== undefined ? ` (${ms}ms)` : ''}`);
+                return;
+              }
+              default:
+                return;
+            }
+          },
+        );
+        if (result.status === 'success') {
+          const body = result.result !== undefined ? `\n\n${JSON.stringify(result.result, null, 2)}` : '';
+          ctx.showInfo(`✓ done${body}`);
+        } else if (result.status === 'suspended') {
+          const suspendedStep =
+            (result as any)?.suspendedStepId ??
+            Object.entries((result as any)?.steps ?? {}).find(
+              ([_, s]: [string, any]) => s?.status === 'suspended',
+            )?.[0];
+          const suspendPayload =
+            (result as any)?.suspendData ??
+            (suspendedStep ? (result as any)?.steps?.[suspendedStep]?.suspendPayload : undefined);
+          const runInfo = result.runId ? ` (runId: ${result.runId})` : '';
+          const stepInfo = suspendedStep ? ` at step "${suspendedStep}"` : '';
+          const payloadStr =
+            suspendPayload !== undefined ? `\n\nSuspension data:\n${JSON.stringify(suspendPayload, null, 2)}` : '';
+          const resumeHint =
+            result.runId && suspendedStep
+              ? `\n\nTo resume, run:\n/workflows resume ${id} ${result.runId} ${suspendedStep} <json-input>`
+              : '';
+          ctx.showInfo(
+            `⏸ workflow suspended (waiting for approval/input)${stepInfo}${runInfo}${payloadStr}${resumeHint}`,
+          );
         } else {
           const message =
             (result.error as { message?: string } | undefined)?.message ??

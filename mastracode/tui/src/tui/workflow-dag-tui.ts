@@ -35,7 +35,7 @@ const ansi = {
 
 export function renderWorkflowDagTui(
   steps: WorkflowDagTuiStep[],
-  stepStates: Record<string, WorkflowDagTuiStepState> = {}
+  stepStates: Record<string, WorkflowDagTuiStepState> = {},
 ): string {
   if (!steps || steps.length === 0) {
     return `${ansi.gray}(empty workflow DAG)${ansi.reset}`;
@@ -55,9 +55,7 @@ export function renderWorkflowDagTui(
       return 0;
     }
 
-    const maxDepLevel = Math.max(
-      ...step.dependencies.map(depId => getLevel(depId, new Set(visited)))
-    );
+    const maxDepLevel = Math.max(...step.dependencies.map(depId => getLevel(depId, new Set(visited))));
     const lvl = maxDepLevel + 1;
     levelMap.set(id, lvl);
     return lvl;
@@ -71,7 +69,7 @@ export function renderWorkflowDagTui(
     while (levels.length <= lvl) {
       levels.push([]);
     }
-    levels[lvl].push(s.id);
+    levels[lvl]!.push(s.id);
   });
 
   const getStatusBadge = (status: WorkflowStepState = 'pending') => {
@@ -120,9 +118,10 @@ export function renderWorkflowDagTui(
       const color = getStatusColor(stateInfo.status);
 
       const title = step.name || stepId;
-      const deps = step.dependencies && step.dependencies.length > 0
-        ? `${ansi.gray} (deps: ${step.dependencies.join(', ')})${ansi.reset}`
-        : '';
+      const deps =
+        step.dependencies && step.dependencies.length > 0
+          ? `${ansi.gray} (deps: ${step.dependencies.join(', ')})${ansi.reset}`
+          : '';
 
       const top = `${color}┌─ ${ansi.reset}${ansi.bold}${ansi.white}${title}${ansi.reset}${deps} ${color}${'─'.repeat(Math.max(2, 40 - title.length))}${ansi.reset}`;
       const mid = `${color}│ ${ansi.reset}${badge}${stateInfo.error ? `${ansi.red} Err: ${stateInfo.error}${ansi.reset}` : ''}`;

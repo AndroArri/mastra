@@ -2627,6 +2627,9 @@ importers:
         specifier: ^4.3.6
         version: 4.4.3
     devDependencies:
+      '@internal/lint':
+        specifier: workspace:*
+        version: link:../../packages/_config
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4(bufferutil@4.1.0)
@@ -2769,6 +2772,9 @@ importers:
       '@copilotkit/aimock':
         specifier: ^1.29.0
         version: 1.29.0(vitest@4.1.10)
+      '@internal/lint':
+        specifier: workspace:*
+        version: link:../../packages/_config
       '@internal/types-builder':
         specifier: workspace:*
         version: link:../../packages/_types-builder

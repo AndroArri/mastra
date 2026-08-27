@@ -27,4 +27,34 @@ describe('HITL Example Workflow Fixture', () => {
     expect(state2.results.approvalStep).toEqual(userApproval);
     expect(state2.results.finalStep).toBe(`finalized_${JSON.stringify(userApproval)}`);
   });
+
+  it('should run and resume hitlMastraWorkflow via service.ts', async () => {
+    const { Mastra } = await import('@mastra/core/mastra');
+    const { MockStore } = await import('@mastra/core/storage');
+    const { runWorkflow, resumeWorkflow } = await import('../service.js');
+    const { hitlMastraWorkflow } = await import('../hitl-example-workflow.js');
+
+    const mastra = new Mastra({
+      storage: new MockStore(),
+      workflows: { 'hitl-workflow': hitlMastraWorkflow },
+      logger: false,
+    });
+
+    const runResult1 = await runWorkflow(mastra, 'hitl-workflow', {});
+    expect(runResult1.status).toBe('suspended');
+    expect(runResult1.runId).toBeDefined();
+
+    const events: any[] = [];
+    const runResult2 = await resumeWorkflow(
+      mastra,
+      'hitl-workflow',
+      runResult1.runId!,
+      'approvalStep',
+      { approved: true },
+      undefined,
+      evt => events.push(evt),
+    );
+    expect(runResult2.status).toBe('success');
+    expect(runResult2.result).toBe('finalized_{"approved":true}');
+  });
 });

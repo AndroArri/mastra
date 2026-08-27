@@ -51,13 +51,18 @@ const dataPrepStep = createStep({
 
 const approvalStep = createStep({
   id: 'approvalStep',
-  inputSchema: z.object({ prepData: z.string() }),
+  inputSchema: z.object({ prepData: z.string() }).passthrough(),
   outputSchema: z.any(),
+  suspendSchema: z.object({ question: z.string(), prepData: z.any() }).passthrough(),
+  resumeSchema: z.any(),
   execute: async ctx => {
-    const rawData = ctx.stepResults?.dataPrep;
+    if (ctx.resumeData) {
+      return ctx.resumeData;
+    }
+    const rawData = (ctx as any).getStepResult?.('dataPrep') ?? (ctx as any).stepResults?.dataPrep;
     const prepData =
-      typeof rawData === 'object' && rawData !== null && 'prepData' in rawData ? rawData.prepData : rawData;
-    ctx.suspend({
+      typeof rawData === 'object' && rawData !== null && 'prepData' in rawData ? (rawData as any).prepData : rawData;
+    return await ctx.suspend({
       question: 'Proceed with execution?',
       prepData,
     });
@@ -69,7 +74,8 @@ const finalStep = createStep({
   inputSchema: z.any(),
   outputSchema: z.string(),
   execute: async ctx => {
-    return `finalized_${JSON.stringify(ctx.stepResults?.approvalStep)}`;
+    const approvalResult = (ctx as any).getStepResult?.('approvalStep') ?? (ctx as any).stepResults?.approvalStep;
+    return `finalized_${JSON.stringify(approvalResult)}`;
   },
 });
 
