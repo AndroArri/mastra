@@ -66,6 +66,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@internal/types-builder": "workspace:*",
     "@mastra/libsql": "workspace:*",
     "@mastra/pg": "workspace:*",
     "@types/node": "22.20.1",

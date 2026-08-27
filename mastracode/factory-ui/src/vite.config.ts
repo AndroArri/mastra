@@ -264,7 +264,9 @@ export default defineConfig(({ mode }) => {
   // Absolute: Vite resolves a relative `envDir` against `root` (`src/ui`), so
   // `MASTRACODE_ENV_DIR=../web` would silently point at a directory that does
   // not exist and no `VITE_*` var would reach `import.meta.env`.
-  const envDir = resolve(process.env.MASTRACODE_ENV_DIR ?? resolve(here, '..'));
+  const envDir = resolve(
+    process.env.MASTRACODE_ENV_DIR ? resolve(process.env.MASTRACODE_ENV_DIR) : resolve(here, '../../web'),
+  );
   // `web:dev` only wraps the API server in `varlock run`, so the package-root
   // `.env` never reaches this Vite process's `process.env` — load it here.
   const env = { ...loadEnv(mode, envDir, ''), ...process.env };
