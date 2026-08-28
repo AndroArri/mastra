@@ -39,11 +39,14 @@ function runtimeConfigPlugin(): Plugin {
     name: 'mastracode-runtime-config',
     apply: 'serve',
     transformIndexHtml() {
-      const authEnabled = false;
       return [
         {
           tag: 'script',
-          children: `window.__MASTRACODE_CONFIG__ = ${JSON.stringify({ authEnabled })};`,
+          children: `window.__MASTRACODE_CONFIG__ = ${JSON.stringify({
+            authEnabled: true,
+            authenticated: true,
+            user: { userId: 'local-dev-user', name: 'Developer', email: 'dev@localhost' },
+          })};`,
           injectTo: 'head-prepend',
         },
       ];
