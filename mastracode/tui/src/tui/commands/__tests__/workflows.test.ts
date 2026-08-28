@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   runWorkflow: vi.fn(),
+  resumeWorkflow: vi.fn(),
 }));
 
 vi.mock('@mastra/code-sdk/workflows/service', () => ({
@@ -9,6 +10,7 @@ vi.mock('@mastra/code-sdk/workflows/service', () => ({
   getWorkflow: vi.fn(),
   listWorkflows: vi.fn(),
   runWorkflow: mocks.runWorkflow,
+  resumeWorkflow: mocks.resumeWorkflow,
 }));
 
 import { handleWorkflowsCommand } from '../workflows.js';
@@ -71,5 +73,55 @@ describe('handleWorkflowsCommand', () => {
     await handleWorkflowsCommand(ctx, ['run', 'greeting'], 'run greeting {}');
 
     expect(ctx.showError).toHaveBeenCalledWith('Workflow command failed: connection lost');
+  });
+
+  it('handles suspended workflow status cleanly and shows resume instructions', async () => {
+    const mastra = {};
+    const ctx = createCtx();
+    ctx.controller.getMastra.mockReturnValue(mastra);
+    mocks.runWorkflow.mockResolvedValue({
+      status: 'suspended',
+      runId: 'run-123',
+      suspendedStepId: 'approvalStep',
+      suspendData: { question: 'Proceed?' },
+    });
+
+    await handleWorkflowsCommand(ctx, ['run', 'hitl-workflow'], 'run hitl-workflow {}');
+
+    expect(ctx.showError).not.toHaveBeenCalled();
+    expect(ctx.showInfo).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'workflow suspended (waiting for approval/input) at step "approvalStep" (runId: run-123)',
+      ),
+    );
+  });
+
+  it('resumes suspended workflow with user input', async () => {
+    const mastra = {};
+    const ctx = createCtx();
+    ctx.controller.getMastra.mockReturnValue(mastra);
+    mocks.resumeWorkflow.mockResolvedValue({
+      status: 'success',
+      runId: 'run-123',
+      result: 'finalized_{"approved":true}',
+    });
+
+    await handleWorkflowsCommand(
+      ctx,
+      ['resume', 'hitl-workflow', 'run-123', 'approvalStep', '{"approved":true}'],
+      'resume hitl-workflow run-123 approvalStep {"approved":true}',
+    );
+
+    expect(mocks.resumeWorkflow).toHaveBeenCalledWith(
+      mastra,
+      'hitl-workflow',
+      'run-123',
+      'approvalStep',
+      { approved: true },
+      undefined,
+      expect.any(Function),
+    );
+    expect(ctx.showError).not.toHaveBeenCalled();
+    expect(ctx.showInfo).toHaveBeenCalledWith(expect.stringContaining('✓ done'));
   });
 });

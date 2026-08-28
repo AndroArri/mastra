@@ -1,0 +1,14 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Test deterministic Mastra primitives execution in TUI",
+        "model": "gpt-5.4-mini",
+        "endpoint": "chat"
+      },
+      "response": {
+        "content": "Mastra Primitives TUI E2E Execution Completed: Agent, Tool, Workflow, Memory, Voice, Storage, RAG, Observability, Evals, MCP verified."
+      }
+    }
+  ]
+}

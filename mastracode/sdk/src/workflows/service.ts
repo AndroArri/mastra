@@ -59,12 +59,42 @@ async function workflowDefinitionsStore(mastra: Mastra): Promise<WorkflowDefinit
 export async function listWorkflows(mastra: Mastra): Promise<{ workflows: StoredWorkflowRow[]; total: number }> {
   const store = await workflowDefinitionsStore(mastra);
   const result = await store.list({ status: 'active' });
-  return { workflows: result.definitions, total: result.total };
+  const storedIds = new Set(result.definitions.map(w => w.id));
+
+  const workflows: StoredWorkflowRow[] = [...result.definitions];
+
+  const liveWorkflows = (mastra as any).listWorkflows?.() ?? {};
+  for (const [id, wf] of Object.entries(liveWorkflows)) {
+    if (!storedIds.has(id)) {
+      workflows.push({
+        id,
+        description: (wf as any)?.description ?? 'Code-defined workflow',
+        status: 'active',
+        graph: (wf as any)?.steps ?? (wf as any)?.graph ?? [],
+      });
+    }
+  }
+
+  return { workflows, total: workflows.length };
 }
 
 export async function getWorkflow(mastra: Mastra, id: string): Promise<StoredWorkflowRow | null> {
   const store = await workflowDefinitionsStore(mastra);
-  return store.get(id);
+  const stored = await store.get(id);
+  if (stored) return stored;
+
+  const liveWorkflows = (mastra as any).listWorkflows?.() ?? {};
+  const live = (liveWorkflows as Record<string, any>)[id];
+  if (live) {
+    return {
+      id,
+      description: live.description ?? 'Code-defined workflow',
+      status: 'active',
+      graph: live.steps ?? live.graph ?? [],
+    };
+  }
+
+  return null;
 }
 
 export async function deleteWorkflow(mastra: Mastra, id: string): Promise<{ ok: true; id: string }> {
@@ -75,6 +105,17 @@ export async function deleteWorkflow(mastra: Mastra, id: string): Promise<{ ok: 
   // no-op'd by addWorkflow's first-write-wins guard.
   mastra.removeWorkflow(id);
   return { ok: true, id };
+}
+
+export interface RunResult {
+  status: string;
+  runId?: string;
+  result?: unknown;
+  error?: unknown;
+  steps?: Record<string, unknown>;
+  suspendedStepId?: string;
+  suspendData?: unknown;
+  tripwire?: { reason?: string; retry?: unknown; metadata?: unknown; processorId?: string };
 }
 
 export async function runWorkflow(
@@ -116,10 +157,11 @@ export async function runWorkflow(
 
   const run = await wf.createRun();
   if (!onEvent) {
-    return (await run.start({
+    const res = await run.start({
       inputData,
       requestContext: requestContext as Parameters<typeof run.start>[0]['requestContext'],
-    })) as RunResult;
+    });
+    return { ...(res as RunResult), runId: run.runId };
   }
 
   const output = run.stream({
@@ -133,5 +175,61 @@ export async function runWorkflow(
       // Never let a bad consumer break the run.
     }
   }
-  return (await output.result) as RunResult;
+  const res = await output.result;
+  return { ...(res as RunResult), runId: run.runId };
+}
+
+export async function resumeWorkflow(
+  mastra: Mastra,
+  workflowId: string,
+  runId: string,
+  stepId: string,
+  resumeData: unknown,
+  requestContext?: unknown,
+  onEvent?: WorkflowRunEventCallback,
+): Promise<RunResult> {
+  let wf: ReturnType<Mastra['getWorkflow']> | undefined;
+  let lookupError: unknown;
+  try {
+    wf = mastra.getWorkflow(workflowId as never);
+  } catch (error) {
+    lookupError = error;
+  }
+  if (!wf) {
+    throw new Error(`No workflow registered with id "${workflowId}".`, { cause: lookupError });
+  }
+
+  const run = await wf.createRun({ runId });
+  if (!onEvent) {
+    const res = await (run as any).resume({
+      step: stepId,
+      resumeData,
+      requestContext: requestContext as any,
+    });
+    return { ...(res as RunResult), runId: run.runId };
+  }
+
+  if (typeof (run as any).resumeStream === 'function') {
+    const output = (run as any).resumeStream({
+      step: stepId,
+      resumeData,
+      requestContext: requestContext as any,
+    }) as unknown as WorkflowRunOutputLike;
+    for await (const event of output.fullStream) {
+      try {
+        onEvent(event);
+      } catch {
+        // Never let a bad consumer break the run.
+      }
+    }
+    const res = await output.result;
+    return { ...(res as RunResult), runId: run.runId };
+  }
+
+  const res = await (run as any).resume({
+    step: stepId,
+    resumeData,
+    requestContext: requestContext as any,
+  });
+  return { ...(res as RunResult), runId: run.runId };
 }

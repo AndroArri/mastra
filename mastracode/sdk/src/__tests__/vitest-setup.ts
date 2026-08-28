@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 // Global mock for @mastra/github-signals — the package resolves to dist/ which
-// is unavailable during unit tests.  Every test file that transitively imports
+// is unavailable during unit tests. Every test file that transitively imports
 // mastracode/src/index.ts (which conditionally imports the package) needs this.
 vi.mock('@mastra/github-signals', () => ({
   GithubSignals: class GithubSignals {
@@ -46,4 +46,14 @@ vi.mock('@mastra/github-signals', () => ({
   GITHUB_SYNC_STATUS_TAG: 'github-sync-status',
   GITHUB_SIGNALS_METADATA_KEY: 'githubSignals',
   normalizeGithubChecksForSnapshot: vi.fn(() => ({ checks: [] })),
+}));
+
+vi.mock('@mastra/core/llm', () => ({
+  MastraModelGateway: class MastraModelGateway {},
+  PROVIDER_REGISTRY: {},
+}));
+
+vi.mock('@mastra/schema-compat', () => ({
+  applyCompatLayer: vi.fn(s => s),
+  GoogleSchemaCompatLayer: class GoogleSchemaCompatLayer {},
 }));

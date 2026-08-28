@@ -176,7 +176,8 @@ export type ScenarioName =
   | 'worktree-cross-thread-resume'
   | 'worktree-thread-scoping'
   | 'resourceid-drift-prompt-accept'
-  | 'resourceid-drift-prompt-decline';
+  | 'resourceid-drift-prompt-decline'
+  | 'primitives-e2e';
 
 export type McE2eTerminal = {
   getByText: (text: string | RegExp, options?: { full?: boolean; strict?: boolean }) => any;
