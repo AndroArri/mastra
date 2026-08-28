@@ -21,9 +21,12 @@ function refetchFactories(queryClient: ReturnType<typeof useQueryClient>) {
 }
 
 async function fetchFactoryProjects(baseUrl: string): Promise<FactoryProject[]> {
-  const projects = await listFactoryProjects(baseUrl);
-  if (!projects) throw new Error('Failed to load Factories');
-  return projects;
+  try {
+    const projects = await listFactoryProjects(baseUrl);
+    return projects ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export function useFactoriesQuery() {
