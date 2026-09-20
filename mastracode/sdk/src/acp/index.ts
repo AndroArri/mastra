@@ -72,3 +72,8 @@ export async function acpMain(options?: { dangerousAutoApprove?: boolean }): Pro
     process.exit(1);
   }
 }
+
+export * from './event-bus.js';
+export * from './client.js';
+export * from './agent.js';
+

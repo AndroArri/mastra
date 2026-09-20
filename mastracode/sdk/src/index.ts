@@ -58,9 +58,7 @@ import {
   createGitRefReminderReader,
   getStaticallyLoadedInstructionPaths,
 } from './agents/prompts/agent-instructions.js';
-// import { executeSubagent } from './agents/subagents/execute.js';
-// import { exploreSubagent } from './agents/subagents/explore.js';
-// import { planSubagent } from './agents/subagents/plan.js';
+import { EXPLORE_MODE_AVAILABLE_TOOLS, PLAN_MODE_AVAILABLE_TOOLS } from './agents/tool-availability.js';
 import { attachOMThreadStatePersistence, restoreOMThreadStateForCurrentThread } from './agents/thread-caveman-state.js';
 import { createDynamicTools, createToolHooks } from './agents/tools.js';
 import type { PostToolObserver, ToolLike } from './agents/tools.js';
@@ -941,8 +939,31 @@ export async function createMastraCodeAgentController(config?: MastraCodeConfig)
     ],
   });
 
-  // const defaultSubAgents: Array<AgentControllerSubagent> = [];
-  // const defaultSubagents = [exploreSubagent, planSubagent, executeSubagent];
+  const defaultSubagents: AgentControllerSubagent[] = [
+    {
+      id: 'explore',
+      name: 'Explore',
+      description: "Read-only codebase exploration. Use for questions like 'find all usages of X', 'how does module Y work'.",
+      instructions: fastMode.instructions,
+      defaultModelId: 'openai/gpt-5.4-mini',
+      allowedWorkspaceTools: [...EXPLORE_MODE_AVAILABLE_TOOLS],
+    },
+    {
+      id: 'plan',
+      name: 'Plan',
+      description: "Read-only analysis and planning. Use for 'create an implementation plan for X', 'analyze the architecture of Y'.",
+      instructions: planMode.instructions,
+      defaultModelId: 'openai/gpt-5.5',
+      allowedWorkspaceTools: [...PLAN_MODE_AVAILABLE_TOOLS],
+    },
+    {
+      id: 'execute',
+      name: 'Execute',
+      description: "Task execution with write capabilities. Use for 'implement feature X', 'fix bug Y', 'refactor module Z'.",
+      instructions: buildMode.instructions,
+      defaultModelId: 'openai/gpt-5.5',
+    },
+  ];
 
   const defaultModes: AgentControllerMode[] = [
     {
@@ -1107,7 +1128,7 @@ export async function createMastraCodeAgentController(config?: MastraCodeConfig)
     pubsub: signalsPubSub,
     stateSchema: typedStateSchema,
     agent: codeAgent,
-    subagents: config?.subagents ?? [],
+    subagents: config?.subagents ?? defaultSubagents,
     gateways: [amazonBedrockGateway, mastraCodeGateway],
     workspace: config?.workspace ?? (args => getDynamicWorkspace(args)),
     browser: config?.browser,
@@ -1498,6 +1519,7 @@ export async function prepareAgentControllerMount(
 export const createMastraCode = bootLocalAgentController;
 export * from './knowledge-inspector.js';
 
+
 /**
  * Programmatic headless API. `runMC` runs an already-built controller/session
  * (from {@link createMastraCode}) as an async-iterable run that also resolves to
@@ -1528,3 +1550,44 @@ export type {
   ResolutionPolicy,
   PermissionMode,
 } from './headless/index.js';
+
+export * from './acp.js';
+
+export * from './sandbox/index.js';
+
+export * from './memory/index.js';
+
+export * from './skills/index.js';
+
+export * from './connections/index.js';
+
+export * from './auth/index.js';
+
+export * from './browser/index.js';
+
+export {
+  DEFAULT_SUBAGENT_MODELS,
+  SubagentModelRouter,
+  defaultSubagentModelRouter,
+  resolveAgentModel,
+} from './agents/subagent-routing.js';
+export type {
+  AgentModelRoutingConfig,
+  KnownAgentType,
+  PrimaryAgentType,
+  SpecializedSubagentType,
+} from './agents/subagent-routing.js';
+
+export { SubagentOrchestrator, isolateContext } from './agents/subagent-orchestrator.js';
+export type {
+  ExecutionTreeListener,
+  SubagentExecutionNode,
+  SubagentExecutionStatus,
+  SubagentExecutor,
+  SubagentTaskConfig,
+} from './agents/subagent-orchestrator.js';
+
+export * from './workflows/index.js';
+
+
+

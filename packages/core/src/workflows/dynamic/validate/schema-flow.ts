@@ -301,7 +301,7 @@ export function inferGraphSchemas(def: WorkflowValidationInput, index: WorkflowR
     // Register the outputs of id-bearing top-level entries so later mappings
     // and templates can reference them. `step` descriptors register too (their
     // schema is unknown, which is fine — unknown never fails a check).
-    const id = 'id' in entry && entry.id ? entry.id : entry.type === 'step' ? entry.step.id : undefined;
+    const id = leafEntryId(entry);
     if (id) stepOutputs.set(id, current);
   });
 

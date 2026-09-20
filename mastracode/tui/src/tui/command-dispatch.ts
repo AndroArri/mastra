@@ -95,7 +95,7 @@ export async function dispatchSlashCommand(
 
   const slashMatch = trimmedInput.match(/^(\/\/?)([\s\S]*)$/);
   const slashPrefix = slashMatch?.[1] ?? '';
-  const withoutSlashes = slashMatch?.[2] ?? trimmedInput;
+  const withoutSlashes = (slashMatch?.[2] ?? trimmedInput).trimStart();
   const firstWhitespaceIndex = withoutSlashes.search(/\s/);
   const commandText = firstWhitespaceIndex === -1 ? withoutSlashes : withoutSlashes.slice(0, firstWhitespaceIndex);
   const rawArgsText = firstWhitespaceIndex === -1 ? '' : withoutSlashes.slice(firstWhitespaceIndex).trim();

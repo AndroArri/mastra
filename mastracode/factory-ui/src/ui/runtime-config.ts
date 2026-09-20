@@ -11,6 +11,8 @@
 export interface RuntimeConfig {
   /** Whether the server has WorkOS auth configured. Absent = unknown. */
   authEnabled?: boolean;
+  authenticated?: boolean;
+  user?: { userId?: string; email?: string; name?: string; organizationId?: string };
 }
 
 declare global {
@@ -22,5 +24,9 @@ declare global {
 export function getRuntimeConfig(): RuntimeConfig {
   const config = window.__MASTRACODE_CONFIG__;
   if (!config || typeof config !== 'object') return {};
-  return typeof config.authEnabled === 'boolean' ? { authEnabled: config.authEnabled } : {};
+  return {
+    ...(typeof config.authEnabled === 'boolean' ? { authEnabled: config.authEnabled } : {}),
+    ...(typeof config.authenticated === 'boolean' ? { authenticated: config.authenticated } : {}),
+    ...(config.user && typeof config.user === 'object' ? { user: config.user } : {}),
+  };
 }

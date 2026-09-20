@@ -176,6 +176,7 @@ import { workspaceToolNamesScenario } from './workspace-tool-names.js';
 import { workspaceToolOutputRenderingScenario } from './workspace-tool-output-rendering.js';
 import { worktreeCrossThreadResumeScenario } from './worktree-cross-thread-resume.js';
 import { worktreeThreadScopingScenario } from './worktree-thread-scoping.js';
+import { primitivesE2eScenario } from './primitives-e2e.js';
 
 export type { McE2eScenario, McE2eScenarioRuntime, ScenarioName } from './types.js';
 
@@ -355,6 +356,7 @@ export const scenarios: Record<ScenarioName, McE2eScenario> = {
   'resourceid-drift-prompt-decline': resourceidDriftPromptDeclineScenario,
   'worktree-cross-thread-resume': worktreeCrossThreadResumeScenario,
   'worktree-thread-scoping': worktreeThreadScopingScenario,
+  'primitives-e2e': primitivesE2eScenario,
 };
 
 export function getScenario(name: ScenarioName): McE2eScenario {

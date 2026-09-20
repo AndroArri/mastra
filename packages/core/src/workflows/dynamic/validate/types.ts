@@ -126,6 +126,7 @@ export interface WorkflowValidationInput {
 }
 
 /** Step id of a single-step (leaf) entry; `step` descriptors carry theirs nested. */
-export function leafEntryId(entry: SerializedSingleStepEntry): string | undefined {
-  return entry.type === 'step' ? entry.step.id : entry.id;
+export function leafEntryId(entry: ValidatableStepFlowEntry): string | undefined {
+  if (!entry) return undefined;
+  return entry.type === 'step' ? entry.step?.id : 'id' in entry ? entry.id : undefined;
 }
